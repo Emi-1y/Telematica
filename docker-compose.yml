@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  iot-server:
+    # Construir la imagen desde el Dockerfile de esta carpeta
+    build: .
+
+    # Nombre del contenedor (para identificarlo fácilmente)
+    container_name: iot-monitoring-server
+
+    # Mapear puerto: puerto_host:puerto_contenedor
+    # Así, cuando algo se conecte a tu máquina en :8080,
+    # Docker lo redirige al puerto 8080 dentro del contenedor
+    ports:
+      - "8080:8080"
+
+    # Montar carpeta local de logs para poder ver los archivos
+    # desde fuera del contenedor sin entrar a él
+    volumes:
+      - ./logs:/app/logs
+
+    # Reiniciar automáticamente si el servidor falla
+    restart: unless-stopped
