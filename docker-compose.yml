@@ -1,23 +1,111 @@
 version: "3.9"
 
 services:
+  # --- 1. Servidor Central (C) ---
   iot-server:
-    # Construir la imagen desde el Dockerfile de esta carpeta
     build: .
-
-    # Nombre del contenedor (para identificarlo fácilmente)
     container_name: iot-monitoring-server
-
-    # Mapear puerto: puerto_host:puerto_contenedor
-    # Así, cuando algo se conecte a tu máquina en :8080,
-    # Docker lo redirige al puerto 8080 dentro del contenedor
     ports:
       - "8080:8080"
-
-    # Montar carpeta local de logs para poder ver los archivos
-    # desde fuera del contenedor sin entrar a él
     volumes:
       - ./logs:/app/logs
+    restart: unless-stopped
 
-    # Reiniciar automáticamente si el servidor falla
+  # --- 2. Servicio de Autenticación (Python) ---
+  auth-service:
+    build:
+      context: ./Auth
+    container_name: auth-microservice
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+
+  # --- 3. Interfaz Web Dashboard (Python) ---
+  web-service:
+    build:
+      context: ./Web
+    container_name: web-dashboard
+    ports:
+      - "5000:5000"
+    environment:
+      - IOT_SERVER_HOST=iot-server
+      - IOT_SERVER_PORT=8080
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - SECRET_KEY=claver_secreta_universitaria
+    volumes:
+      - ./Web:/app
+    depends_on:
+      - iot-server
+      - auth-service
+    restart: unless-stopped
+
+  # --- 4. Sensores Python (Simulación de 5 dispositivos para Demo) ---
+  temp-01:
+    build:
+      context: ./Sensor
+      dockerfile: Dockerfile.py_sensor
+    container_name: iot-temp-001
+    environment:
+      - IOT_SERVER_HOST=iot-server
+      - IOT_SERVER_PORT=8080
+      - SENSOR_ID=temp-001
+      - SENSOR_TYPE=temperature
+    depends_on:
+      - iot-server
+    restart: unless-stopped
+  
+  temp-02:
+    build:
+      context: ./Sensor
+      dockerfile: Dockerfile.py_sensor
+    container_name: iot-temp-002
+    environment:
+      - IOT_SERVER_HOST=iot-server
+      - IOT_SERVER_PORT=8080
+      - SENSOR_ID=temp-002
+      - SENSOR_TYPE=temperature
+    depends_on:
+      - iot-server
+    restart: unless-stopped
+
+  vib-01:
+    build:
+      context: ./Sensor
+      dockerfile: Dockerfile.py_sensor
+    container_name: iot-vib-001
+    environment:
+      - IOT_SERVER_HOST=iot-server
+      - IOT_SERVER_PORT=8080
+      - SENSOR_ID=vib-001
+      - SENSOR_TYPE=vibration
+    depends_on:
+      - iot-server
+    restart: unless-stopped
+
+  hum-01:
+    build:
+      context: ./Sensor
+      dockerfile: Dockerfile.py_sensor
+    container_name: iot-hum-001
+    environment:
+      - IOT_SERVER_HOST=iot-server
+      - IOT_SERVER_PORT=8080
+      - SENSOR_ID=hum-001
+      - SENSOR_TYPE=humidity
+    depends_on:
+      - iot-server
+    restart: unless-stopped
+
+  energy-01:
+    build:
+      context: ./Sensor
+      dockerfile: Dockerfile.py_sensor
+    container_name: iot-energy-001
+    environment:
+      - IOT_SERVER_HOST=iot-server
+      - IOT_SERVER_PORT=8080
+      - SENSOR_ID=energy-001
+      - SENSOR_TYPE=energy
+    depends_on:
+      - iot-server
     restart: unless-stopped

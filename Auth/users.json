@@ -1,0 +1,24 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password": "password123",
+      "role": "administrator"
+    },
+    {
+      "username": "operator1",
+      "password": "op123",
+      "role": "operator"
+    },
+    {
+      "username": "operador1",
+      "password": "iot_password",
+      "role": "operator"
+    },
+    {
+      "username": "ana",
+      "password": "ana_password",
+      "role": "operator"
+    }
+  ]
+}

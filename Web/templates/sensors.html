@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+
+{% block title %}Live Sensors - IoT Monitoring{% endblock %}
+
+{% block content %}
+    <h1>Active Sensors</h1>
+    
+    <div class="card">
+        <h3>Real-Time Data Feed:</h3>
+        <ul style="list-style-type: none; padding: 0;">
+            {% if sensors_list %}
+                {% for sensor in sensors_list %}
+                    <li style="padding: 12px; border-bottom: 1px solid #eee; font-family: monospace; font-size: 1.2rem;">
+                        {{ sensor }}
+                    </li>
+                {% endfor %}
+            {% else %}
+                <li style="color: var(--gray); font-style: italic;">No sensors currently transmitting...</li>
+            {% endif %}
+        </ul>
+    </div>
+    
+{% endblock %}

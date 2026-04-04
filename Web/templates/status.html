@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+
+{% block title %}System Status - IoT Monitoring{% endblock %}
+
+{% block content %}
+    <h1>Requirement 4: Structured System Status</h1>
+    
+    <div class="card" style="border-left: 5px solid #17a2b8; font-family: 'Courier New', Courier, monospace; font-size: 1.1rem; line-height: 1.6;">
+        <!-- Matching Requirement 4 exact example -->
+        <div>Server: <strong style="color: var(--success);">Running</strong></div>
+        <div>Uptime: <strong>{{ stats.uptime }} sec</strong></div>
+        <div>Sensors connected: <strong>{{ stats.sensors }}</strong></div>
+        <div>Alerts stored: <strong>{{ stats.alerts }}</strong></div>
+    </div>
+    
+{% endblock %}

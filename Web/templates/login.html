@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT - Inicio de Sesión</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --dark: #212529;
+            --light: #f8f9fa;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: #f0f2f5; 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+        }
+
+        .login-card { 
+            background: white; 
+            padding: 2.5rem; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            width: 90%; 
+            max-width: 400px; 
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        h2 { margin-top: 0; color: var(--primary); font-size: 1.8rem; margin-bottom: 2rem; }
+        
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        label { display: block; margin-bottom: 0.5rem; color: #555; font-size: 0.9rem; }
+        
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1); }
+
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: background 0.3s, transform 0.1s;
+            margin-top: 1rem;
+        }
+        button:hover { background: #1557b0; }
+        button:active { transform: scale(0.98); }
+
+        .flash { 
+            background: #ffe3e3; 
+            color: #d32f2f; 
+            padding: 10px; 
+            border-radius: 6px; 
+            margin-bottom: 1.5rem; 
+            font-size: 0.85rem; 
+            border-left: 4px solid #d32f2f;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .login-card { padding: 1.5rem; }
+            h2 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>IoT Dashboard</h2>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label>Usuario</label>
+                <input type="text" name="username" placeholder="Tu usuario" required autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" name="password" placeholder="Tu clave" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit">Iniciar Sesión</button>
+        </form>
+    </div>
+</body>
+</html>
