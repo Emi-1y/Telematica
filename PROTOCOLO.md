@@ -271,6 +271,3 @@ mediante resolución DNS usando `getaddrinfo()` de la API POSIX.
 
 El servidor es accesible mediante el nombre de dominio configurado en AWS Route 53:
 
-```
-iot-monitoring.example.com → [IP de instancia EC2]
-```
