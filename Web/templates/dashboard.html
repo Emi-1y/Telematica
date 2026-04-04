@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+
+{% block title %}Cliente Operador - IoT Monitoring{% endblock %}
+
+{% block content %}
+    <h1 style="color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px;">Cliente Operador</h1>
+    
+    <!-- 1. Sensores Activos -->
+    <div class="card" style="border-left: 5px solid #6c757d;">
+        <h2 style="font-size: 1.4rem;"><i class="fas fa-microchip"></i> Sensores activos:</h2>
+        <ul style="list-style-type: none; padding-left: 20px; font-family: 'Courier New', Courier, monospace; font-size: 1.1rem;">
+            {% if sensors_list %}
+                {% for sensor in sensors_list %}
+                    {% set parts = sensor.split(' → ') %}
+                    {% set sid = parts[0] %}
+                    {% set type = "temperatura" if "temp" in sid else ("vibración" if "vib" in sid else ("humedad" if "hum" in sid else "energía")) %}
+                    <li style="margin-bottom: 5px;">- {{ sid }} ({{ type }})</li>
+                {% endfor %}
+            {% else %}
+                <li style="color: #666; font-style: italic;">Esperando conexión de sensores...</li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <!-- 2. Mediciones en tiempo real -->
+    <div class="card" style="border-left: 5px solid #28a745;">
+        <h2 style="font-size: 1.4rem;"><i class="fas fa-broadcast-tower"></i> Mediciones en tiempo real:</h2>
+        <ul style="list-style-type: none; padding-left: 20px; font-family: 'Courier New', Courier, monospace; font-size: 1.2rem; font-weight: bold;">
+            {% if sensors_list %}
+                {% for sensor in sensors_list %}
+                    {% set parts = sensor.split(' → ') %}
+                    <li style="margin-bottom: 8px;">- {{ sid }} → {{ val_raw }}</li>
+                {% endfor %}
+            {% else %}
+                <li style="color: #666; font-style: italic;">Sin datos entrantes...</li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <!-- 3. Alertas generadas -->
+    <div class="card" style="border-left: 5px solid #dc3545; background-color: #fff5f5;">
+        <h2 style="font-size: 1.4rem; color: #721c24;"><i class="fas fa-exclamation-triangle"></i> Alertas generadas:</h2>
+        <ul style="list-style-type: none; padding-left: 20px; font-family: 'Courier New', Courier, monospace; font-size: 1.1rem; color: #721c24;">
+            {% if alerts_list %}
+                {% for alert in alerts_list %}
+                    {# Formato esperado: [Time] ID → REASON (Value) #}
+                    {% set parts = alert.split(' → ') %}
+                    {% if parts|length > 1 %}
+                        {% set sid = parts[0].split(']')[1].strip() %}
+                        {% set reason = parts[1].split('(')[0].strip() %}
+                        <li style="margin-bottom: 5px; font-weight: bold;">- {{ sid }} → {{ reason }}</li>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <li style="color: #155724; font-style: italic;">No hay alertas críticas en este momento.</li>
+            {% endif %}
+        </ul>
+    </div>
+
+{% endblock %}

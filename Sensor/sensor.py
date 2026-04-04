@@ -10,8 +10,9 @@ import sys
 # ──────────────────────────────────────────────
 RANGOS = {
     "temperature": {"min": 15.0, "max": 35.0, "anomalia": 45.0, "unidad": "°C"},
-    "vibration":   {"min": 0.5,  "max": 5.0,  "anomalia": 10.0, "unidad": "m/s²"},
-    "energy":      {"min": 100,  "max": 400,   "anomalia": 550,  "unidad": "W"},
+    "vibration":   {"min": 0.1,  "max": 0.8,  "anomalia": 1.5,  "unidad": "g"},
+    "energy":      {"min": 100,  "max": 400,  "anomalia": 550,  "unidad": "W"},
+    "humidity":    {"min": 30.0, "max": 75.0, "anomalia": 95.0, "unidad": "%"},
 }
 
 INTERVALO_SEGUNDOS = 5   # cada cuánto envía una medición

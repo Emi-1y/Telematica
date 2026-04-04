@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
+#include <stdarg.h>
 
 /* --- Sockets Berkeley --- */
 #include <sys/socket.h>
@@ -27,10 +28,26 @@
 #define TEMP_MIN       -10.0
 #define VIBRATION_MAX   8.0
 #define ENERGY_MAX    500.0
+#define MAX_ALERTS     50   /* últimas N alertas en memoria */
 
 /* ============================================================
  *  ESTRUCTURAS DE DATOS
  * ============================================================ */
+
+/* Una alerta por anomalía */
+typedef struct {
+    char   sensor_id[64];
+    char   tipo[32];
+    double valor;
+    char   razon[128];
+    time_t timestamp;
+} Alerta;
+
+/* Una entrada de actividad reciente (lo que se verá en la web) */
+typedef struct {
+    char   mensaje[256];
+    time_t timestamp;
+} Actividad;
 
 /* Una medición individual de un sensor */
 typedef struct {
@@ -73,14 +90,28 @@ typedef struct {
  * ============================================================ */
 Sensor    sensores[MAX_SENSORS];
 Operador  operadores[MAX_OPERATORS];
-int       num_sensores  = 0;
+int       num_sensores   = 0;
 int       num_operadores = 0;
+
+/* Búfer circular para alertas */
+Alerta    alertas_recientes[MAX_ALERTS];
+int       total_alertas_recibidas = 0; /* contador total para el índice circular */
+int       num_alertas_actuales    = 0; /* cuántas hay realmente en el buffer [0, MAX_ALERTS] */
+
+/* Búfer circular para actividad general (para mostrar en la Dashboard) */
+#define MAX_ACTIVIDAD  20
+Actividad actividad_reciente[MAX_ACTIVIDAD];
+int       total_actividad_recibida = 0;
+int       num_actividad_actual     = 0;
 
 pthread_mutex_t mutex_sensores   = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_operadores = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_log        = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_alertas    = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_actividad  = PTHREAD_MUTEX_INITIALIZER;
 
 FILE *archivo_log = NULL;
+time_t hora_inicio; /* para el uptime del status */
 
 /* ============================================================
  *  LOGGING
@@ -106,6 +137,23 @@ void log_evento(const char *ip, int puerto, const char *recibido, const char *re
     }
 
     pthread_mutex_unlock(&mutex_log);
+}
+
+/* Registrar actividad en el buffer circular para la Web Dashboard */
+void registrar_actividad(const char *fmt, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    pthread_mutex_lock(&mutex_actividad);
+    int idx = total_actividad_recibida % MAX_ACTIVIDAD;
+    strncpy(actividad_reciente[idx].mensaje, buffer, 255);
+    actividad_reciente[idx].timestamp = time(NULL);
+    total_actividad_recibida++;
+    if (num_actividad_actual < MAX_ACTIVIDAD) num_actividad_actual++;
+    pthread_mutex_unlock(&mutex_actividad);
 }
 
 /* ============================================================
@@ -161,6 +209,18 @@ void verificar_anomalia(const char *sensor_id, const char *tipo, double valor,
     }
 
     if (anomalia) {
+        /* Guardar en el búfer de alertas para la web */
+        pthread_mutex_lock(&mutex_alertas);
+        int idx = total_alertas_recibidas % MAX_ALERTS;
+        strncpy(alertas_recientes[idx].sensor_id, sensor_id, 63);
+        strncpy(alertas_recientes[idx].tipo,      tipo,      31);
+        alertas_recientes[idx].valor = valor;
+        strncpy(alertas_recientes[idx].razon,     razon,     127);
+        alertas_recientes[idx].timestamp = time(NULL);
+        total_alertas_recibidas++;
+        if (num_alertas_actuales < MAX_ALERTS) num_alertas_actuales++;
+        pthread_mutex_unlock(&mutex_alertas);
+
         snprintf(alerta, sizeof(alerta), "ALERT %s %s %.4f %s\n",
                  sensor_id, tipo, valor, razon);
         notificar_operadores(alerta);
@@ -283,6 +343,7 @@ void procesar_mensaje(const char *msg, char *respuesta, int resp_size,
         if (r >= 0) {
             snprintf(respuesta, resp_size, "OK SENSOR_REGISTERED %s\n", arg2);
             strncpy(nombre_cliente, arg2, 63);
+            registrar_actividad("[REGISTRO] SENSOR %s (%s) registrado desde socket", arg2, arg3);
         } else if (r == -1) {
             snprintf(respuesta, resp_size, "ERROR SENSOR_ALREADY_EXISTS %s\n", arg2);
         } else {
@@ -297,6 +358,7 @@ void procesar_mensaje(const char *msg, char *respuesta, int resp_size,
             snprintf(respuesta, resp_size, "OK OPERATOR_REGISTERED %s\n", arg2);
             *es_operador = 1;
             strncpy(nombre_cliente, arg2, 63);
+            registrar_actividad("[REGISTRO] OPERADOR %s conectado", arg2);
         } else {
             snprintf(respuesta, resp_size, "ERROR SERVER_FULL\n");
         }
@@ -308,11 +370,59 @@ void procesar_mensaje(const char *msg, char *respuesta, int resp_size,
         guardar_medicion(arg1, arg2, valor);
         verificar_anomalia(arg1, arg2, valor, cli->ip, cli->puerto);
         snprintf(respuesta, resp_size, "OK DATA_RECEIVED\n");
+        registrar_actividad("[DATA] %s -> %.2f %s | Servidor: OK DATA_RECEIVED", arg1, valor, arg2);
     }
 
-    /* ---- LIST SENSORS ---- */
-    else if (strcmp(cmd, "LIST") == 0 && strcmp(arg1, "SENSORS") == 0) {
+    /* ---- LIST SENSORS / LIST_SENSORS ---- */
+    else if ((strcmp(cmd, "LIST") == 0 && strcmp(arg1, "SENSORS") == 0) ||
+             strcmp(cmd, "LIST_SENSORS") == 0 || strcmp(cmd, "GET_SENSORS") == 0) {
         construir_lista_sensores(respuesta, resp_size);
+    }
+
+    /* ---- GET_RECENT_ACTIVITY ---- */
+    else if (strcmp(cmd, "GET_RECENT_ACTIVITY") == 0) {
+        pthread_mutex_lock(&mutex_actividad);
+        int pos = snprintf(respuesta, resp_size, "ACTIVITY [");
+        /* Empezar desde el más viejo al más nuevo */
+        int start = (total_actividad_recibida > MAX_ACTIVIDAD) ? (total_actividad_recibida % MAX_ACTIVIDAD) : 0;
+        for (int i = 0; i < num_actividad_actual; i++) {
+            int idx = (start + i) % MAX_ACTIVIDAD;
+            pos += snprintf(respuesta + pos, resp_size - pos,
+                            "{msg:\"%s\",ts:%ld}%s",
+                            actividad_reciente[idx].mensaje,
+                            actividad_reciente[idx].timestamp,
+                            (i == num_actividad_actual - 1) ? "" : ",");
+        }
+        snprintf(respuesta + pos, resp_size - pos, "]\n");
+        pthread_mutex_unlock(&mutex_actividad);
+    }
+
+    /* ---- GET_STATUS ---- */
+    else if (strcmp(cmd, "GET_STATUS") == 0) {
+        time_t ahora = time(NULL);
+        long uptime = (long)difftime(ahora, hora_inicio);
+        snprintf(respuesta, resp_size, "STATUS OK uptime:%ld sensors:%d operators:%d\n",
+                 uptime, num_sensores, num_operadores);
+    }
+
+    /* ---- GET_ALERTS ---- */
+    else if (strcmp(cmd, "GET_ALERTS") == 0) {
+        pthread_mutex_lock(&mutex_alertas);
+        int pos = snprintf(respuesta, resp_size, "ALERTS [");
+        for (int i = 0; i < num_alertas_actuales; i++) {
+            /* Mostrar desde la más reciente si es posible, o simplemente el buffer */
+            /* Para simplicidad, recorremos el buffer circular */
+            int idx = i;
+            pos += snprintf(respuesta + pos, resp_size - pos,
+                            "{id:%s,t:%s,v:%.2f,r:%s,ts:%ld}",
+                            alertas_recientes[idx].sensor_id,
+                            alertas_recientes[idx].tipo,
+                            alertas_recientes[idx].valor,
+                            alertas_recientes[idx].razon,
+                            alertas_recientes[idx].timestamp);
+        }
+        snprintf(respuesta + pos, resp_size - pos, "]\n");
+        pthread_mutex_unlock(&mutex_alertas);
     }
 
     /* ---- GET HISTORY <sensor_id> ---- */
@@ -434,6 +544,8 @@ int main(int argc, char *argv[]) {
 
     const char *puerto_str   = argv[1];
     const char *archivo_str  = argv[2];
+
+    hora_inicio = time(NULL);
 
     /* Abrir archivo de logs */
     archivo_log = fopen(archivo_str, "a");
