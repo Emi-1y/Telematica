@@ -1,8 +1,5 @@
-Aquí tienes el **README completo en Markdown puro**, limpio y listo para copiar y pegar directamente en GitHub 👇🔥
 
----
 
-````markdown
 # IoT Services Monitoring Dashboard 🌐🚀
 
 Este proyecto es una plataforma de monitoreo IoT industrial distribuida, diseñada para la gestión en tiempo real de sensores, detección de anomalías y visualización de datos mediante una arquitectura de microservicios robusta.
